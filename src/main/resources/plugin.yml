@@ -1,6 +1,6 @@
 name: $name
 version: $version
-main: io.papermc.paperweight.testplugin.TestPlugin
+main: me.fostar.paperweight.inventorysort.InventorySortPlugin
 description: $description
 load: STARTUP
 authors:

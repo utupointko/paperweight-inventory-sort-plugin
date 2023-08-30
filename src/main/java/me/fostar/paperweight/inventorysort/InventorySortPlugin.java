@@ -16,8 +16,11 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.craftbukkit.v1_20_R1.CraftServer;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.framework.qual.DefaultQualifier;
@@ -35,27 +38,72 @@ public final class InventorySortPlugin extends JavaPlugin implements Listener {
         this.getServer().getPluginManager().registerEvents(this, this);
 
         this.registerPluginBrigadierCommand(
-            "paperweight",
-            literal -> literal.requires(stack -> stack.getBukkitSender().hasPermission("paperweight"))
-                .then(literal("hello")
-                    .executes(ctx -> {
-                        ctx.getSource().getBukkitSender().sendMessage(text("Hello!", BLUE));
-                        return Command.SINGLE_SUCCESS;
-                    }))
-                .then(argument("players", players())
-                    .executes(ctx -> {
-                        final Collection<ServerPlayer> players = EntityArgument.getPlayers(ctx, "players");
-                        for (final ServerPlayer player : players) {
-                            player.sendSystemMessage(
-                                Component.literal("Hello from Paperweight test plugin!")
-                                    .withStyle(ChatFormatting.ITALIC, ChatFormatting.GREEN)
-                                    .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/paperweight @a")))
-                            );
-                        }
-                        return players.size();
-                    }))
+            "sort",
+            literal -> literal.requires(stack -> stack.getBukkitSender().hasPermission("inventorysort"))
+                .executes(ctx -> {
+                    if (ctx.getSource().getBukkitSender() instanceof Player) {
+                        Player player = (Player) ctx.getSource().getBukkitSender();
+                        sortInventory(player.getInventory());
+                        player.sendMessage("Inventory sorted!");
+                    }
+                    return Command.SINGLE_SUCCESS;
+                })
         );
     }
+
+    private void sortInventory(Inventory inventory) {
+        // Get the contents of the inventory
+        ItemStack[] inv = inventory.getStorageContents();
+
+        // Create a new array to hold the items to be sorted
+        ItemStack[] newInv = new ItemStack[inv.length - 9];
+
+        // Copy the items to be sorted to the new array
+        for (int i = 0; i < newInv.length; i++) {
+            newInv[i] = inv[i + 9];
+        }
+
+        // Sort the new array using bubble sort
+        bubbleSort(newInv);
+
+        // Copy the sorted items back to the original inventory
+        for (int i = 0; i < newInv.length; i++) {
+            inv[i + 9] = newInv[i];
+        }
+
+        // Update the inventory with the sorted contents
+        inventory.setStorageContents(inv);
+    }
+
+    private void bubbleSort(ItemStack[] arr) {
+        int n = arr.length;
+
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - i - 1; j++) {
+                if (arr[j] == null || (arr[j + 1] != null && arr[j].getType().compareTo(arr[j + 1].getType()) < 0)) {
+                    // Swap arr[j+1] and arr[j]
+                    ItemStack temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                } else if (arr[j] != null && arr[j + 1] != null && arr[j].getType().compareTo(arr[j + 1].getType()) == 0) {
+                    // Handle stacking logic for items with the same type
+                    int maxStackSize = arr[j].getMaxStackSize();
+                    int combinedAmount = arr[j].getAmount() + arr[j + 1].getAmount();
+
+                    if (combinedAmount <= maxStackSize) {
+                        // Combine items into one stack
+                        arr[j].setAmount(combinedAmount);
+                        arr[j + 1] = null; // Set the second stack to null
+                    } else {
+                        // Split stacks and adjust amounts
+                        arr[j].setAmount(maxStackSize);
+                        arr[j + 1].setAmount(combinedAmount - maxStackSize);
+                    }
+                }
+            }
+        }
+    }
+
 
     private PluginBrigadierCommand registerPluginBrigadierCommand(final String label, final Consumer<LiteralArgumentBuilder<CommandSourceStack>> command) {
         final PluginBrigadierCommand pluginBrigadierCommand = new PluginBrigadierCommand(this, label, command);
